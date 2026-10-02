@@ -1,0 +1,64 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #382415;
+    background-color: #FAF6EF;
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: 'Fraunces', Georgia, serif;
+  }
+}
+
+/* Subtle Singapore Peranakan / Kopitiam tile motif for header & accents */
+.bg-kopitiam-tile {
+  background-color: #FAF6EF;
+  background-image: radial-gradient(#d3a375 0.75px, transparent 0.75px), radial-gradient(#d3a375 0.75px, #FAF6EF 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+  background-opacity: 0.2;
+}
+
+.header-tile-pattern {
+  background-color: #2F5938;
+  background-image: 
+    linear-gradient(45deg, rgba(255,255,255,0.06) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.06) 75%, rgba(255,255,255,0.06)),
+    linear-gradient(45deg, rgba(255,255,255,0.06) 25%, transparent 25%, transparent 75%, rgba(255,255,255,0.06) 75%, rgba(255,255,255,0.06));
+  background-size: 16px 16px;
+  background-position: 0 0, 8px 8px;
+}
+
+/* Scanning radar and laser animations */
+@keyframes laserSweep {
+  0% {
+    top: 0%;
+    opacity: 0.8;
+  }
+  50% {
+    top: 96%;
+    opacity: 1;
+  }
+  100% {
+    top: 0%;
+    opacity: 0.8;
+  }
+}
+
+.animate-laser-sweep {
+  animation: laserSweep 2.4s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 15px rgba(229, 57, 53, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px rgba(229, 57, 53, 0.8);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 2s infinite;
+}
