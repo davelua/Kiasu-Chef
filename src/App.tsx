@@ -7,6 +7,34 @@ import { ErrorModal } from './components/ErrorModal';
 import { DetectedIngredient, Recipe } from './types';
 import { SAMPLE_FRIDGES } from './data/sampleFridges';
 
+// Rasterise (SVG samples) and downscale (large photos) to a compact JPEG so the
+// payload stays under Vercel's 4.5MB body limit and Gemini accepts the format.
+async function prepareImage(dataUrl: string, mime: string): Promise<{ data: string; mime: string }> {
+  try {
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error('image load failed'));
+      img.src = dataUrl;
+    });
+    const MAX = 1280;
+    const w0 = img.naturalWidth || 600;
+    const h0 = img.naturalHeight || 450;
+    const scale = Math.min(1, MAX / Math.max(w0, h0));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(w0 * scale);
+    canvas.height = Math.round(h0 * scale);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return { data: dataUrl, mime };
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    return { data: canvas.toDataURL('image/jpeg', 0.85), mime: 'image/jpeg' };
+  } catch {
+    return { data: dataUrl, mime };
+  }
+}
+
 export default function App() {
   const [singlish, setSinglish] = useState<boolean>(true);
   const [view, setView] = useState<'landing' | 'scanning' | 'results'>('landing');
@@ -34,12 +62,13 @@ export default function App() {
     setError(null);
 
     try {
+      const prepared = await prepareImage(imgData, mime);
       const response = await fetch('/api/analyze-fridge', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          image: imgData,
-          mimeType: mime,
+          image: prepared.data,
+          mimeType: prepared.mime,
           singlish: singlish,
         }),
       });
