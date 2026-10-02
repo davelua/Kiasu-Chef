@@ -19,6 +19,22 @@ const ai = new GoogleGenAI({
   },
 });
 
+const MODEL_CHAIN = ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-2.5-flash'];
+
+// Try each model in turn; a 503/overload on one falls through to the next.
+async function generateWithFallback(params: { contents: any; config: any }) {
+  let lastErr: any;
+  for (const model of MODEL_CHAIN) {
+    try {
+      return await ai.models.generateContent({ model, ...params });
+    } catch (err: any) {
+      lastErr = err;
+      console.warn(`Model ${model} failed:`, err?.message?.slice(0, 200));
+    }
+  }
+  throw lastErr;
+}
+
 const SINGAPORE_SYSTEM_PROMPT = `You are Kiasu Chef, a Singaporean home-cook auntie. Suggest recipes that suit Singapore home kitchens: zi char style stir-fries, kopitiam breakfasts, steamed dishes, soups, sambal-based dishes, rice and noodle dishes, plus simple Western or fusion options. Prefer ingredients easily found in NTUC or wet markets. Recognise local ingredients such as kangkong, taugeh, tau kwa, tau pok, belacan, ikan bilis, sambal, kecap manis, chye sim, bak choy, luncheon meat and canned sardines.`;
 
 const analysisResponseSchema = {
@@ -162,38 +178,17 @@ Provide exactly 3 recipes with realistic cooking times, easy steps, and shiok_ra
       },
     };
 
-    let modelName = 'gemini-2.5-flash';
-    let response;
-
-    try {
-      response = await ai.models.generateContent({
-        model: modelName,
-        contents: {
-          parts: [imagePart, { text: promptText }],
-        },
-        config: {
-          systemInstruction: SINGAPORE_SYSTEM_PROMPT,
-          responseMimeType: 'application/json',
-          responseSchema: analysisResponseSchema,
-          temperature: 0.4,
-        },
-      });
-    } catch (modelErr: any) {
-      console.warn(`Primary model ${modelName} failed, falling back to gemini-3.8-flash:`, modelErr?.message);
-      modelName = 'gemini-3.8-flash';
-      response = await ai.models.generateContent({
-        model: modelName,
-        contents: {
-          parts: [imagePart, { text: promptText }],
-        },
-        config: {
-          systemInstruction: SINGAPORE_SYSTEM_PROMPT,
-          responseMimeType: 'application/json',
-          responseSchema: analysisResponseSchema,
-          temperature: 0.4,
-        },
-      });
-    }
+    const response = await generateWithFallback({
+      contents: {
+        parts: [imagePart, { text: promptText }],
+      },
+      config: {
+        systemInstruction: SINGAPORE_SYSTEM_PROMPT,
+        responseMimeType: 'application/json',
+        responseSchema: analysisResponseSchema,
+        temperature: 0.4,
+      },
+    });
 
     const textOutput = response.text?.trim() || '{}';
     const parsedData = JSON.parse(textOutput);
@@ -297,30 +292,15 @@ Return formatted JSON conforming to the recipe schema.`;
       required: ['recipes'],
     };
 
-    let response;
-    try {
-      response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: promptText,
-        config: {
-          systemInstruction: SINGAPORE_SYSTEM_PROMPT,
-          responseMimeType: 'application/json',
-          responseSchema: recipesSchemaOnly,
-          temperature: 0.6,
-        },
-      });
-    } catch {
-      response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: promptText,
-        config: {
-          systemInstruction: SINGAPORE_SYSTEM_PROMPT,
-          responseMimeType: 'application/json',
-          responseSchema: recipesSchemaOnly,
-          temperature: 0.6,
-        },
-      });
-    }
+    const response = await generateWithFallback({
+      contents: promptText,
+      config: {
+        systemInstruction: SINGAPORE_SYSTEM_PROMPT,
+        responseMimeType: 'application/json',
+        responseSchema: recipesSchemaOnly,
+        temperature: 0.6,
+      },
+    });
 
     const parsed = JSON.parse(response.text?.trim() || '{}');
     const recipesWithIds = (parsed.recipes || []).slice(0, 3).map((rec: any, idx: number) => ({
